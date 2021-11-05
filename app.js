@@ -1,7 +1,18 @@
 const express = require('express')
 const app = express()
+const axios = require('axios')
 
-const port = 5000
+const mongoose = require('mongoose');
+
+mongoose.connect('mongodb://localhost:27017/amazonKeywords', {useNewUrlParser:true, useUnifiedTopology:true});
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', function() {
+  // we're connected!
+  console.log("Connected to mongodb...");
+});
+const port = 3000
 
 // Static files
 app.use(express.static('public'))
@@ -14,12 +25,100 @@ app.use('/js',express.static(__dirname + 'public/js'))
 app.set('views', './src/views')
 app.set('view engine', 'ejs')
 
-
+app.use(express.urlencoded({extended:true}))
 
 // Routes
 const newsRouter = require('./src/routes/news')
 
+// create new Keyword
+
+const Keyword = require("./models/keywords")
+app.post('/', async (req, res, next)=>{
+
+    let keyword = new Keyword({
+        keyword: req.body.keyword,
+        url: req.body.url,
+        percentage: req.body.percentage
+    })
+
+    let newKeyword = await keyword.save()
+    // console.log(newKeyword)
+    res.send(newKeyword)
+
+})
+
+async function getAllKeywordsFromDb () {
+    let allKws = await Keyword.find({})
+
+    
+    let allKwObjs = []
+    allKws.forEach((kw=>{
+        let urlObjArr = []
+
+        
+        let urlLength = kw.url.length
+        
+        let kwObj = {}
+        kwObj.keyword = kw.keyword
+        for (let i = 0; i < urlLength; i++) {
+            let urlObj = {}
+            urlObj.url = kw.url[i]
+            urlObj.percentage = parseInt(kw.percentage[i])
+
+            urlObjArr.push(urlObj)
+            kwObj.urlsArr = urlObjArr
+        }
+        allKwObjs.push(kwObj)     
+        
+        
+    }))
+
+    let tst = allKwObjs.map(kw=>{   
+        let sameKw = kw.keyword
+        
+        let newArrs = kw.urlsArr.map(obj=>{
+            let pureArrays = []
+            for (let i=0; i<obj.percentage; i++) {
+                pureArrays.push(obj.url)
+            }
+
+            return pureArrays
+        })
+
+        newArrs = [].concat.apply([], newArrs);
+
+        return {
+            keyword:sameKw,
+            finalUrlArr: newArrs
+        }
+        
+    })
+
+    
+
+    tst.forEach(item=>{
+
+        let oldUrl = "/" + item.keyword.toLowerCase().replace(/ /g, "-")
+        // console.log("kw:", oldUrl)
+        // console.log(item.finalUrlArr) 
+        let urlsQty = item.finalUrlArr.length       
+
+        app.get(oldUrl, (req, res)=>{
+            let randIndex = Math.floor(Math.random() * urlsQty)
+            let amazonRedirectionUrl = item.finalUrlArr[randIndex]
+            console.log(randIndex)
+            res.redirect(301, amazonRedirectionUrl)
+        })
+    })
+
+}
+
+getAllKeywordsFromDb()
+
+
+
 app.use('/', newsRouter)
+
 
 app.listen(port, ()=>{
     console.log(`Website running on ${port}...`)
