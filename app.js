@@ -12,7 +12,7 @@ db.once('open', function() {
   // we're connected!
   console.log("Connected to mongodb...");
 });
-const port = 3000
+const port = 7000
 
 // Static files
 app.use(express.static('public'))
