@@ -1,6 +1,17 @@
 const express = require('express')
 const app = express()
 const axios = require('axios')
+const morgan = require('morgan')
+
+app.use(morgan('tiny'))
+
+
+
+const session = require('express-session')
+
+app.use(session({
+    secret: "thisisnotagoodsecret"
+}))
 
 const mongoose = require('mongoose');
 
@@ -94,19 +105,15 @@ async function getAllKeywordsFromDb () {
         
     })
 
-    
-
     tst.forEach(item=>{
 
         let oldUrl = "/" + item.keyword.toLowerCase().replace(/ /g, "-")
-        // console.log("kw:", oldUrl)
-        // console.log(item.finalUrlArr) 
-        let urlsQty = item.finalUrlArr.length       
+        let urlArrays = item.finalUrlArr 
+        let urlsQty = urlArrays.length    
 
-        app.get(oldUrl, (req, res)=>{
+        app.get(oldUrl, (req, res)=>{   
             let randIndex = Math.floor(Math.random() * urlsQty)
-            let amazonRedirectionUrl = item.finalUrlArr[randIndex]
-            console.log(randIndex)
+            let amazonRedirectionUrl = urlArrays[randIndex]
             res.redirect(301, amazonRedirectionUrl)
         })
     })
@@ -115,9 +122,18 @@ async function getAllKeywordsFromDb () {
 
 getAllKeywordsFromDb()
 
-
+app.get('/viewcounts', (req, res,next)=>{
+    if (req.session.count) {
+        req.session.count ++
+    } else  {
+        req.session.count = 1
+    }
+    res.send(`You have viewed this page ${req.session.count} times!`)
+})
 
 app.use('/', newsRouter)
+
+
 
 
 app.listen(port, ()=>{
